@@ -1,0 +1,393 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AetherOS v7.4.7 (Stable)</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --glass: rgba(22, 22, 22, 0.98);
+            --border: 1px solid rgba(255, 255, 255, 0.15);
+            --accent: #7C4DFF;
+            --text: #e0e0e0;
+            --taskbar-h: 50px;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+
+        body {
+            margin: 0; padding: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: #1a1a1a;
+            background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80');
+            background-position: center center;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: var(--text);
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        /* --- DESKTOP --- */
+        #desktop {
+            height: calc(100% - var(--taskbar-h));
+            width: 100%;
+            position: absolute; top: 0; left: 0;
+            padding: 15px;
+            display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; gap: 10px;
+            z-index: 1;
+        }
+
+        .icon {
+            width: 80px; display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; padding: 10px 5px; border-radius: 8px;
+            text-align: center; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,0.9);
+            transition: 0.1s;
+        }
+        .icon:hover { background: rgba(255,255,255,0.1); }
+        .icon-emoji { font-size: 28px; margin-bottom: 5px; }
+        .icon-label { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+
+        /* --- WINDOWS --- */
+        .window {
+            position: absolute; top: 0 !important; left: 0 !important;
+            width: 100% !important; height: calc(100% - var(--taskbar-h)) !important;
+            background: var(--bg-color); display: flex; flex-direction: column;
+            z-index: 100; animation: popIn 0.15s ease-out;
+        }
+        @keyframes popIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: scale(1); } }
+        .window.minimized { display: none; }
+
+        .bar {
+            height: 44px; background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 15px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        .controls { display: flex; gap: 10px; }
+        .win-btn { width: 14px; height: 14px; border-radius: 50%; cursor: pointer; }
+        .close { background: #FF5F56; } .min { background: #FFBD2E; }
+        .app-title { font-size: 14px; font-weight: 600; opacity: 0.8; }
+        .win-body { flex: 1; overflow: hidden; position: relative; background: #000; display: flex; flex-direction: column; }
+
+        /* --- START MENU --- */
+        #menu {
+            position: absolute; bottom: var(--taskbar-h); left: 0;
+            width: 320px; height: 450px; max-width: 100vw; max-height: 80vh;
+            background: var(--glass); backdrop-filter: blur(20px);
+            border: var(--border); border-bottom: none; border-radius: 0 12px 0 0;
+            display: none; flex-direction: row; z-index: 99998;
+            box-shadow: 5px 0 30px rgba(0,0,0,0.5);
+        }
+        #menu.open { display: flex; }
+        .menu-sidebar { width: 50px; background: rgba(255,255,255,0.03); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; padding: 15px 0; gap: 20px; font-size: 20px; }
+        .menu-apps { flex: 1; padding: 10px; overflow-y: auto; }
+        .menu-item { display: flex; align-items: center; padding: 12px 15px; border-radius: 8px; cursor: pointer; gap: 12px; transition: 0.1s; }
+        .menu-item:hover { background: var(--accent); }
+
+        /* --- TASKBAR --- */
+        #taskbar {
+            height: var(--taskbar-h); background: #0a0a0a;
+            position: absolute; bottom: 0; width: 100%;
+            display: flex; align-items: center; padding: 0 5px; z-index: 99999;
+            border-top: var(--border);
+        }
+        #start-btn { width: 50px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--accent); cursor: pointer; }
+        #tasks { display: flex; gap: 8px; flex: 1; overflow-x: auto; align-items: center; padding: 0 10px; }
+        .task { min-width: 42px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 20px; border-radius: 6px; background: rgba(255,255,255,0.05); cursor: pointer; border-bottom: 2px solid transparent; }
+        .task.active { background: rgba(255,255,255,0.1); border-bottom-color: var(--accent); }
+
+        /* --- TERMINAL & CHAT STYLES --- */
+        .term { 
+            background: #000; color: #0f0; font-family: 'Consolas', 'Monaco', monospace; 
+            padding: 10px; flex: 1; overflow-y: auto; 
+            display: flex; flex-direction: column;
+            -webkit-overflow-scrolling: touch;
+        }
+        .term-scroll { display: flex; flex-direction: column; min-height: 100%; padding-bottom: 60px; }
+        .term-history { white-space: pre-wrap; word-break: break-all; margin-bottom: 8px; line-height: 1.4; font-size: 13px; }
+        .term-line { display: flex; align-items: flex-start; width: 100%; flex-wrap: wrap; }
+        .term-prompt { color: var(--accent); white-space: nowrap; margin-right: 5px; font-weight: bold; font-size: 13px; }
+        .term-input { background: transparent; border: none; color: inherit; flex: 1; outline: none; font-size: 16px; font-family: inherit; padding: 0; margin: 0; min-width: 100px; }
+        
+        #chat-hist div { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div id="desktop"></div>
+<div id="menu">
+    <div class="menu-sidebar">⚙️ 👤 📁</div>
+    <div class="menu-apps" id="menu-apps"></div>
+</div>
+
+<div id="taskbar">
+    <div id="start-btn" onclick="toggleMenu()">❖</div>
+    <div id="tasks"></div>
+    <div id="time" style="margin-left:auto; padding-right:15px; font-size:12px; font-weight:bold; opacity:0.8;">12:00</div>
+</div>
+
+<script>
+    // --- PERSISTENT FILE SYSTEM ---
+    const initialFS = {
+        'home/user': ['Documents/', 'Downloads/', 'Music/', 'Welcome.txt'],
+        'home/user/Documents': ['Notes.txt'],
+        'home/user/Downloads': [],
+        'home/user/Music': [],
+        '__meta__': { 
+            'Welcome.txt': 'Welcome to AetherOS v7.4.7!\n\nAI Chat is now available. Configure your API key in Settings.', 
+            'Notes.txt': 'AetherOS integrated file system.' 
+        }
+    };
+    let systemFS = JSON.parse(localStorage.getItem('aether_fs')) || initialFS;
+    function saveFS() { localStorage.setItem('aether_fs', JSON.stringify(systemFS)); }
+
+    // --- TERMINAL ENGINE ---
+    function appTerminal(c) {
+        let currentPath = ['home', 'user'];
+        c.innerHTML = `
+            <div class="term">
+                <div class="term-scroll">
+                    <div class="term-history" id="term-history">AetherOS Shell v7.4.7 [STABLE]\nType 'help' for commands.\n\n</div>
+                    <div class="term-line">
+                        <span class="term-prompt" id="term-prompt">root@aetheros:/home/user$</span>
+                        <input class="term-input" id="term-input" spellcheck="false" autocomplete="off" inputmode="text">
+                    </div>
+                </div>
+            </div>`;
+        const input = c.querySelector('#term-input'), history = c.querySelector('#term-history'), prompt = c.querySelector('#term-prompt'), term = c.querySelector('.term');
+        
+        const log = (text, color = '#0f0') => {
+            const div = document.createElement('div');
+            div.style.color = color;
+            div.innerText = text;
+            history.appendChild(div);
+        };
+        
+        const exec = async (raw) => {
+            const parts = raw.trim().split(/\s+/), cmd = parts[0].toLowerCase(), args = parts.slice(1), curDirStr = currentPath.join('/');
+            log(`${prompt.innerText} ${raw}`, '#888');
+            
+            if (cmd === 'ls') { log((systemFS[curDirStr] || []).join('    ')); } 
+            else if (cmd === 'cd' || cmd === 'cd..') {
+                const target = (cmd === 'cd..') ? '..' : args[0];
+                if (target === '..') { if (currentPath.length > 1) currentPath.pop(); } 
+                else if (target) {
+                    const fmt = target.endsWith('/') ? target : target + '/';
+                    if ((systemFS[curDirStr] || []).includes(fmt)) { currentPath.push(target.replace('/', '')); } 
+                    else log(`cd: no such directory: ${target}`, 'red');
+                }
+            }
+            else if (cmd === 'mv') {
+                const source = args[0], dest = args[1];
+                if (!source || !dest) log('mv: missing file operand', 'red');
+                else if (!systemFS[curDirStr].includes(source)) log(`mv: cannot stat '${source}': No such file`, 'red');
+                else {
+                    const isDir = dest.endsWith('/') || (systemFS[curDirStr] || []).includes(dest + '/');
+                    const targetDirName = dest.endsWith('/') ? dest : dest + '/';
+                    if (isDir && (systemFS[curDirStr] || []).includes(targetDirName)) {
+                        const targetPath = curDirStr + '/' + targetDirName.replace('/', '');
+                        systemFS[curDirStr] = systemFS[curDirStr].filter(i => i !== source);
+                        if (!systemFS[targetPath]) systemFS[targetPath] = [];
+                        systemFS[targetPath].push(source);
+                    } else {
+                        systemFS[curDirStr] = systemFS[curDirStr].map(item => item === source ? dest : item);
+                        if (systemFS['__meta__'][source] !== undefined) {
+                            systemFS['__meta__'][dest] = systemFS['__meta__'][source];
+                            delete systemFS['__meta__'][source];
+                        }
+                    }
+                    saveFS();
+                }
+            }
+            else if (cmd === 'cat') {
+                const arg = args[0];
+                if (!arg) log('cat: missing operand', 'red');
+                else if ((systemFS[curDirStr] || []).includes(arg)) { log(systemFS['__meta__'][arg] || "[Empty File]", "#fff"); } 
+                else log(`cat: ${arg}: No such file`, 'red');
+            }
+            else if (cmd === 'open') {
+                const arg = args[0];
+                if (!arg) log('open: missing argument', 'red');
+                else if ((systemFS[curDirStr] || []).includes(arg)) { openWin(apps.find(a => a.id === 'notepad'), arg); } 
+                else {
+                    const targetApp = apps.find(a => a.id === arg || a.name.toLowerCase() === arg);
+                    if (targetApp) openWin(targetApp); else log("File or App not found", "red");
+                }
+            }
+            else if (cmd === 'pwd') log('/' + curDirStr);
+            else if (cmd === 'clear') history.innerHTML = '';
+            else if (cmd === 'help') log('ls, cd, mv, cat, pwd, clear, open [file], exit');
+            else if (cmd === 'exit') closeWin(c.closest('.window').id);
+            else if (cmd !== "") log(`${cmd}: command not found`, 'red');
+
+            prompt.innerText = `root@aetheros:/${currentPath.join('/')}$`;
+        };
+
+        input.onkeydown = async (e) => { 
+            if (e.key === 'Enter') { 
+                const v = input.value; input.value = ''; 
+                await exec(v); term.scrollTop = term.scrollHeight;
+            } 
+        };
+        c.onclick = () => input.focus();
+        setTimeout(() => input.focus(), 50);
+    }
+
+    // --- SYSTEM APPS ---
+    const apps = [
+        { id: 'term', name: 'Terminal', icon: '💻', run: appTerminal },
+        { id: 'notepad', name: 'Notepad', icon: '📝', run: (c, fileToOpen) => {
+            let currentFile = fileToOpen || null;
+            c.innerHTML = `
+                <div style="display:flex; flex-direction:column; height:100%; background:#1e1e1e;">
+                    <div style="padding:8px; background:#2d2d2d; display:flex; gap:10px; border-bottom:1px solid #444;">
+                        <button id="n-save" style="background:var(--accent); border:none; color:white; padding:4px 12px; border-radius:3px; cursor:pointer; font-size:12px;">Save</button>
+                        <span id="n-status" style="font-size:11px; color:#888; margin-top:5px;">${currentFile ? 'Editing: ' + currentFile : 'New Document'}</span>
+                    </div>
+                    <textarea id="n-text" style="flex:1; background:transparent; color:#ddd; border:none; padding:15px; font-family:monospace; font-size:16px; outline:none; resize:none;"></textarea>
+                </div>`;
+            const area = c.querySelector('#n-text'), status = c.querySelector('#n-status');
+            if (currentFile) area.value = systemFS['__meta__'][currentFile] || "";
+            c.querySelector('#n-save').onclick = () => {
+                const name = currentFile || prompt("Enter filename:", "note.txt");
+                if (name) {
+                    currentFile = name;
+                    if (!systemFS['home/user'].includes(name)) systemFS['home/user'].push(name);
+                    systemFS['__meta__'][name] = area.value;
+                    saveFS();
+                    status.innerText = `Saved: ${name}`;
+                }
+            };
+        }},
+        { id: 'chat', name: 'AI Chat', icon: '🤖', run: (c) => {
+            c.innerHTML = `
+                <div style="display:flex; flex-direction:column; height:100%; background:#000;">
+                    <div id="chat-hist" style="flex:1; padding:15px; overflow-y:auto; color:#0f0; font-family:monospace;">
+                        <div style="color:#888;">[System] AetherAI Interface Online.</div>
+                    </div>
+                    <div style="padding:10px; background:#111; display:flex; gap:10px; border-top:1px solid #333;">
+                        <input id="chat-in" placeholder="Query AI..." style="flex:1; background:#222; border:1px solid #444; color:white; padding:8px; border-radius:4px; outline:none;">
+                        <button id="chat-send" style="background:var(--accent); border:none; color:white; padding:8px 15px; border-radius:4px; cursor:pointer;">Send</button>
+                    </div>
+                </div>`;
+            const hist = c.querySelector('#chat-hist'), input = c.querySelector('#chat-in'), send = c.querySelector('#chat-send');
+            const append = (txt, color="#0f0", align="left") => {
+                const d = document.createElement('div');
+                d.style.cssText = `color:${color}; text-align:${align}; white-space:pre-wrap;`;
+                d.innerText = (align === "right" ? "USER: " : "AI: ") + txt;
+                hist.appendChild(d); hist.scrollTop = hist.scrollHeight;
+            };
+
+            const talk = async () => {
+                const msg = input.value.trim();
+                const key = localStorage.getItem('pda_api_key');
+                if (!msg) return;
+                if (!key) { append("[Error] API Key missing in Settings.", "red"); return; }
+                
+                append(msg, "#fff", "right");
+                input.value = "";
+                const think = document.createElement('div'); think.innerText = "Thinking..."; hist.appendChild(think);
+
+                try {
+                    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+                        body: JSON.stringify({
+                            model: "gpt-4o",
+                            messages: [{ role: "system", content: "You are AetherOS AI assistant." }, { role: "user", content: msg }]
+                        })
+                    });
+                    const d = await r.json();
+                    think.remove();
+                    append(d.choices[0].message.content);
+                } catch {
+                    think.remove();
+                    append("[Error] API Communication Failure.", "red");
+                }
+            };
+            send.onclick = talk;
+            input.onkeydown = (e) => { if(e.key==='Enter') talk(); };
+        }},
+        { id: 'settings', name: 'Settings', icon: '⚙️', run: (c) => {
+            c.innerHTML = `
+                <div style="padding:20px; color:white;">
+                    <h3 style="margin-top:0">System Configuration</h3>
+                    <label style="font-size:12px; opacity:0.7">OPENAI API KEY</label>
+                    <input type="password" id="set-key" style="width:100%; background:#222; border:1px solid #444; color:white; padding:10px; margin-top:5px; border-radius:4px;" value="${localStorage.getItem('pda_api_key') || ''}">
+                    <button id="set-save" style="width:100%; background:var(--accent); border:none; color:white; padding:12px; margin-top:15px; border-radius:4px; cursor:pointer;">Save Key</button>
+                    <hr style="border:0; border-top:1px solid #333; margin:20px 0">
+                    <button id="set-wipe" style="width:100%; background:transparent; border:1px solid #f44; color:#f44; padding:8px; border-radius:4px; cursor:pointer;">Factory Reset</button>
+                </div>`;
+            c.querySelector('#set-save').onclick = () => {
+                localStorage.setItem('pda_api_key', c.querySelector('#set-key').value);
+                alert("Settings Updated.");
+            };
+            c.querySelector('#set-wipe').onclick = () => { if(confirm("Clear system storage?")) { localStorage.clear(); location.reload(); } };
+        }},
+        { id: 'files', name: 'Files', icon: '📂', run: (c) => {
+            let path = ['home', 'user'];
+            const render = () => {
+                const dir = path.join('/');
+                const items = systemFS[dir] || [];
+                c.innerHTML = `<div style="padding:10px; border-bottom:1px solid #333; display:flex; align-items:center; gap:10px; background:#111;"><button style="background:#333; color:white; border:none; padding:5px 10px; border-radius:4px;" id="fb">⬅ Back</button><span style="font-size:12px; opacity:0.7;">/${dir}</span></div><div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(80px,1fr)); gap:15px; padding:20px; overflow-y:auto; background:#000; height:calc(100% - 44px);">
+                    ${items.map(i => `<div class="f-item" style="cursor:pointer; text-align:center" data-name="${i}"><div style="font-size:32px">${i.endsWith('/')?'📁':'📄'}</div><div style="font-size:11px; margin-top:5px;">${i}</div></div>`).join('')}</div>`;
+                c.querySelector('#fb').onclick = () => { if(path.length>1){path.pop(); render();} };
+                c.querySelectorAll('.f-item').forEach(el => el.onclick = () => { 
+                    const name = el.dataset.name;
+                    if(name.endsWith('/')){ path.push(name.slice(0,-1)); render(); } 
+                    else { openWin(apps.find(a => a.id === 'notepad'), name); }
+                });
+            };
+            render();
+        }},
+        { id: 'web', name: 'Browser', icon: '🌐', run: (c) => {
+            c.innerHTML = `<div style="display:flex; flex-direction:column; height:100%"><div style="padding:8px; background:#1a1a1a; display:flex; gap:10px; border-bottom:1px solid #333;"><input id="u" value="wikipedia.org" style="flex:1; background:#222; border:1px solid #444; color:white; padding:5px 10px; border-radius:4px;"><button style="background:var(--accent); border:none; color:white; padding:5px 15px; border-radius:4px;" id="g">Go</button></div><iframe id="f" src="https://wikipedia.org" style="flex:1; border:none; background:white"></iframe></div>`;
+            const go = () => { let v = c.querySelector('#u').value; if(!v.startsWith('http')) v = 'https://' + v; c.querySelector('#f').src = v; };
+            c.querySelector('#g').onclick = go;
+            c.querySelector('#u').onkeydown = (e) => { if(e.key==='Enter') go(); };
+        }}
+    ];
+
+    // --- OS CORE ---
+    let zIndex = 100;
+    const desktop = document.getElementById('desktop'), taskbar = document.getElementById('tasks'), menuApps = document.getElementById('menu-apps');
+
+    function openWin(app, data = null) {
+        toggleMenu(false);
+        const w = document.createElement('div');
+        w.className = 'window'; w.id = `w-${Date.now()}`; w.style.zIndex = ++zIndex;
+        w.innerHTML = `<div class="bar"><div class="controls"><div class="win-btn close" onclick="closeWin('${w.id}')"></div><div class="win-btn min" onclick="minWin('${w.id}')"></div></div><div class="app-title">${app.name}${data ? ' - ' + data : ''}</div><div style="width:30px"></div></div><div class="win-body"></div>`;
+        desktop.appendChild(w); app.run(w.querySelector('.win-body'), data);
+        const t = document.createElement('div');
+        t.className = 'task active'; t.id = `t-${w.id}`; t.innerHTML = app.icon;
+        t.onclick = () => { 
+            w.classList.remove('minimized'); w.style.zIndex = ++zIndex; 
+            document.querySelectorAll('.task').forEach(x=>x.classList.remove('active')); t.classList.add('active'); 
+        };
+        taskbar.appendChild(t);
+    }
+
+    function closeWin(id) { document.getElementById(id).remove(); document.getElementById(`t-${id}`).remove(); }
+    function minWin(id) { document.getElementById(id).classList.add('minimized'); document.getElementById(`t-${id}`).classList.remove('active'); }
+    function toggleMenu(force) { const m = document.getElementById('menu'); if(force===false) m.classList.remove('open'); else m.classList.toggle('open'); }
+
+    window.onload = () => {
+        setInterval(() => document.getElementById('time').innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), 1000);
+        apps.forEach(app => {
+            const i = document.createElement('div');
+            i.className = 'icon'; i.innerHTML = `<div class="icon-emoji">${app.icon}</div><div class="icon-label">${app.name}</div>`;
+            i.onclick = () => openWin(app); desktop.appendChild(i);
+            const m = document.createElement('div');
+            m.className = 'menu-item'; m.innerHTML = `<span>${app.icon}</span><span>${app.name}</span>`;
+            m.onclick = () => openWin(app); menuApps.appendChild(m);
+        });
+    };
+</script>
+</body>
+</html>
+
